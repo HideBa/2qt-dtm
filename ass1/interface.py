@@ -31,7 +31,7 @@ class MyInterface(Tk):
         self.interpolate = False
         self.dt = Tin()
 
-        self.ds = rasterio.open("./data/dem_01.tif", "r")
+        self.ds = rasterio.open("./ass1/data/dem_01.tif", "r")
         self.band1 = self.ds.read(1)
         im = Image.fromarray(
             np.uint8(cm.gist_earth(self.band1 / self.band1.max()) * 255)
@@ -109,6 +109,7 @@ class MyInterface(Tk):
         for i in range(0, len(edges), 2):
             row, col = self.ds.index(edges[i][0], edges[i][1])
             row2, col2 = self.ds.index(edges[i + 1][0], edges[i + 1][1])
+            print("row, col, row2, col2", row, col, row2, col2)
             self.draw_edge(
                 row, self.ds.height - col, row2, self.ds.height - col2, "red"
             )

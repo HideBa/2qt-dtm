@@ -74,21 +74,29 @@ class Tin:
         """
         edges = []
         triangles = self.dt.triangles
-        for i in range(0, len(triangles)):
-            tri1 = triangles[i]
-            tri2 = triangles[i + 1] if i + 1 < len(triangles) else triangles[0]
-            a1 = self.dt.points[tri1[0]]
-            b1 = self.dt.points[tri1[1]]
-            c1 = self.dt.points[tri1[2]]
-            a2 = self.dt.points[tri2[0]]
-            b2 = self.dt.points[tri2[1]]
-            c2 = self.dt.points[tri2[2]]
-            cc1 = self.circumcircle_center(a1, b1, c1)
-            cc2 = self.circumcircle_center(a2, b2, c2)
-            if cc1 is None or cc2 is None:
-                continue
-            edges.append([cc1, cc2])
-        return edges
+        for tri in triangles:
+            adjacent_triangles = self.dt.adjacent_triangles_to_triangle(tri)
+            for a_tri in adjacent_triangles:
+                a1 = self.dt.points[a_tri[0]]
+                b1 = self.dt.points[a_tri[1]]
+                c1 = self.dt.points[a_tri[2]]
+                cc1 = self.circumcircle_center(a1, b1, c1)
+                a2 = self.dt.points[tri[0]]
+                b2 = self.dt.points[tri[1]]
+                c2 = self.dt.points[tri[2]]
+                cc2 = self.circumcircle_center(a2, b2, c2)
+                if cc1 is None or cc2 is None:
+                    continue
+                edge = [cc1, cc2]
+                edges.append(edge)
+        np_edges = np.array(edges)
+        unique_edges = np.unique(np_edges, axis=0)
+        edges_list = unique_edges.tolist()
+        print("edges---", edges_list)
+        # flatten_edges = [elem for elem in edges_list]
+        flatten_edges = [item for sublist in edges_list for item in sublist]
+        print("edges---", flatten_edges)
+        return flatten_edges
 
     # Ref: https://github.com/hugoledoux/startin/blob/574e3c8cd06aa5b03b86f867b1fb69f21c0f81c5/src/interpolation/mod.rs#L174C1-L174C5
     def interpolate_tin(self, x, y):
@@ -160,7 +168,7 @@ class Tin:
             + (cx**2 + cy**2) * (bx - ax)
         ) / d
         # radius = math.dist((ux, uy), (ax, ay))
-        return (ux, uy)
+        return [ux, uy]
 
     def closer_point(self, point):
         """
