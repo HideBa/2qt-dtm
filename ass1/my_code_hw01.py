@@ -92,10 +92,7 @@ class Tin:
         np_edges = np.array(edges)
         unique_edges = np.unique(np_edges, axis=0)
         edges_list = unique_edges.tolist()
-        print("edges---", edges_list)
-        # flatten_edges = [elem for elem in edges_list]
         flatten_edges = [item for sublist in edges_list for item in sublist]
-        print("edges---", flatten_edges)
         return flatten_edges
 
     # Ref: https://github.com/hugoledoux/startin/blob/574e3c8cd06aa5b03b86f867b1fb69f21c0f81c5/src/interpolation/mod.rs#L174C1-L174C5
@@ -117,10 +114,11 @@ class Tin:
         # if not is_inside_convex_hull(q, convex_hull(self.dt.points)):
         #     raise ValueError("Point is outside the convex hull")
         # TODO: check if it allowed or not
-        if not self.dt.is_inside_convex_hull(q):
-            raise ValueError("Point is outside the convex hull")
+        if not self.dt.is_inside_convex_hull(x, y):
+            return np.nan
+            # raise ValueError("Point is outside the convex hull")
 
-        # closest 3 points
+        # closest 3 points TODO: check later here
         sorted_points = self.closer_point((x, y))
         p0, p1, p2 = sorted_points[0], sorted_points[1], sorted_points[2]
         xyp1, xyp2, xyp3 = (p0[0], p0[1]), (p1[0], p1[1]), (p2[0], p2[1])
@@ -131,8 +129,12 @@ class Tin:
         total += p0[2] * a0
         total += p1[2] * a1
         total += p2[2] * a2
-        return total / (a0 + a1 + a2)
+        result = total / (a0 + a1 + a2)
+        print("result", result)
+        print("other z values", p0[2], p1[2], p2[2])
+        return result
 
+    # Ref: https://github.com/hugoledoux/startin/blob/574e3c8cd06aa5b03b86f867b1fb69f21c0f81c5/src/lib.rs#L1478
     def get_area_voronoi_cell(self, vi):
         """
         !!! TO BE COMPLETED !!!
@@ -146,8 +148,30 @@ class Tin:
                return numpy.inf if the cell is unbounded
                (infinity https://numpy.org/devdocs/reference/constants.html#numpy.inf)
         """
+        print(vi)
+        print("points---", self.dt.points)
+        try:
+            adjacent_vertecies = self.dt.adjacent_vertices_to_vertex(vi)
+        except Exception as e:
+            print("vi is not in the TIN", e)
+            return np.inf
+        centers = []
 
-        return np.inf
+        for i, adj_v in enumerate(adjacent_vertecies):
+            # Ref:https://github.com/hugoledoux/startin/blob/574e3c8cd06aa5b03b86f867b1fb69f21c0f81c5/src/lib.rs#L225
+            j = i + 1  # TODO: fix later
+            circle_center = self.circumcircle_center(
+                self.dt.points[vi],
+                self.dt.points[adj_v],
+                self.dt.points[j],
+            )
+            centers.append(circle_center)
+        total_area = 0.0
+        for i in range(0, len(centers), 2):
+            if centers[i] is None or centers[i + 1]:
+                continue
+            total_area += area_triangle(self.dt.points[vi], centers[i], centers[i + 1])
+        return total_area
 
     # TODO: change to implement this ref: https://github.com/hugoledoux/startin/blob/574e3c8cd06aa5b03b86f867b1fb69f21c0f81c5/src/geom/mod.rs#L18C3-L18C3
     def circumcircle_center(self, p1, p2, p3):
@@ -180,7 +204,7 @@ class Tin:
         """
         points = self.dt.points
         sorted_points = sorted(
-            points, key=lambda p: math.dist(p, point)
+            points, key=lambda p: math.dist((p[0], p[1]), point)
         )  # Memo: Python's sorted method doesn't change original list
         return sorted_points
 
