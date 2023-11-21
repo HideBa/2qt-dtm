@@ -796,7 +796,19 @@ files = [
     {file = "startinpy-0.10.0-cp39-none-win_amd64.whl", hash = "sha256:595450841fd20165242fad5897f9f1a3c3eca511ca9a3c4de76982aac53eb5ff"},
 ]
 
+[[package]]
+name = "tk"
+version = "0.1.0"
+description = "TensorKit is a deep learning helper between Python and C++."
+category = "main"
+optional = false
+python-versions = "*"
+files = [
+    {file = "tk-0.1.0-py3-none-any.whl", hash = "sha256:703a69ff0d5ba2bd2f7440582ad10160e4a6561595d33457dc6caa79b9bf4930"},
+    {file = "tk-0.1.0.tar.gz", hash = "sha256:60bc8923d5d35f67f5c6bd93d4f0c49d2048114ec077768f959aef36d4ed97f8"},
+]
+
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.10,<3.12"
-content-hash = "16aad0fcd1ca305f457920bfb7a24e4431b0aaf55c58f3097328fcb9315a3da1"
+content-hash = "a7da52b1529fe02f0b5155e23d6fd8e6e3e4e9ccd96e24a8344becd827df8a4e"

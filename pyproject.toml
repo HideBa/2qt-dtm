@@ -4,7 +4,6 @@ version = "0.1.0"
 description = ""
 authors = ["HideBa <baba.papa1120.ba@gmail.com>"]
 readme = "README.md"
-packages = [{include = "2qt_dtm"}]
 
 [tool.poetry.dependencies]
 python = ">=3.10,<3.12"
@@ -16,6 +15,7 @@ scipy = "^1.11.3"
 numpy = "^1.26.2"
 matplotlib = "^3.8.1"
 pillow = "^10.1.0"
+tk = "^0.1.0"
 
 
 [build-system]
