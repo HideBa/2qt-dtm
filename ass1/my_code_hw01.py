@@ -74,9 +74,12 @@ class Tin:
         """
         edges = []
         triangles = self.dt.triangles
+        visited_triangles = []
         for tri in triangles:
             adjacent_triangles = self.dt.adjacent_triangles_to_triangle(tri)
             for a_tri in adjacent_triangles:
+                if a_tri in visited_triangles:
+                    continue
                 a1 = self.dt.points[a_tri[0]]
                 b1 = self.dt.points[a_tri[1]]
                 c1 = self.dt.points[a_tri[2]]
@@ -87,8 +90,11 @@ class Tin:
                 cc2 = self.circumcircle_center(a2, b2, c2)
                 if cc1 is None or cc2 is None:
                     continue
+                if not (self.dt.is_finite(tri) and self.dt.is_finite(a_tri)):
+                    continue  # If a triangle is infinit, it doesn't need to draw
                 edge = [cc1, cc2]
                 edges.append(edge)
+            # TODO: add convex hull edges
         np_edges = np.array(edges)
         unique_edges = np.unique(np_edges, axis=0)
         edges_list = unique_edges.tolist()
@@ -148,30 +154,31 @@ class Tin:
                return numpy.inf if the cell is unbounded
                (infinity https://numpy.org/devdocs/reference/constants.html#numpy.inf)
         """
-        print(vi)
-        print("points---", self.dt.points)
-        try:
-            adjacent_vertecies = self.dt.adjacent_vertices_to_vertex(vi)
-        except Exception as e:
-            print("vi is not in the TIN", e)
-            return np.inf
-        centers = []
+        # print(vi)
+        # print("points---", self.dt.points)
+        # try:
+        #     adjacent_vertecies = self.dt.adjacent_vertices_to_vertex(vi)
+        # except Exception as e:
+        #     print("vi is not in the TIN", e)
+        #     return np.inf
+        # centers = []
 
-        for i, adj_v in enumerate(adjacent_vertecies):
-            # Ref:https://github.com/hugoledoux/startin/blob/574e3c8cd06aa5b03b86f867b1fb69f21c0f81c5/src/lib.rs#L225
-            j = i + 1  # TODO: fix later
-            circle_center = self.circumcircle_center(
-                self.dt.points[vi],
-                self.dt.points[adj_v],
-                self.dt.points[j],
-            )
-            centers.append(circle_center)
-        total_area = 0.0
-        for i in range(0, len(centers), 2):
-            if centers[i] is None or centers[i + 1]:
-                continue
-            total_area += area_triangle(self.dt.points[vi], centers[i], centers[i + 1])
-        return total_area
+        # for i, adj_v in enumerate(adjacent_vertecies):
+        #     # Ref:https://github.com/hugoledoux/startin/blob/574e3c8cd06aa5b03b86f867b1fb69f21c0f81c5/src/lib.rs#L225
+        #     j = i + 1  # TODO: fix later
+        #     circle_center = self.circumcircle_center(
+        #         self.dt.points[vi],
+        #         self.dt.points[adj_v],
+        #         self.dt.points[j],
+        #     )
+        #     centers.append(circle_center)
+        # total_area = 0.0
+        # for i in range(0, len(centers), 2):
+        #     if centers[i] is None or centers[i + 1]:
+        #         continue
+        #     total_area += area_triangle(self.dt.points[vi], centers[i], centers[i + 1])
+        # return total_area
+        return np.Infinity
 
     # TODO: change to implement this ref: https://github.com/hugoledoux/startin/blob/574e3c8cd06aa5b03b86f867b1fb69f21c0f81c5/src/geom/mod.rs#L18C3-L18C3
     def circumcircle_center(self, p1, p2, p3):
