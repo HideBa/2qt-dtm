@@ -73,47 +73,47 @@ class Tin:
                    (function get_delaunay_edges() uses the same principle)
         """
         edges = []
-        triangles = self.dt.triangles
-        visited_triangles = []
-        for tri in triangles:
-            adjacent_triangles = self.dt.adjacent_triangles_to_triangle(tri)
 
-            # If the triangle contains vertices on a convex hull, it's voronoi is unbounded(unnecessary to draw edges)
-            if self.any_vertices_convex_hull([tri[0], tri[1], tri[2]]):
+        points = self.dt.points
+        for point_i in range(1, len(points)):
+            is_vertex_convex_hull = None
+            # TODO: check what is the expected behaviour
+            try:
+                is_vertex_convex_hull = self.dt.is_vertex_convex_hull(point_i)
+            except Exception as e:
+                print(e)
+                return []
+            if is_vertex_convex_hull:
                 continue
-            a0 = self.dt.points[tri[0]]
-            b0 = self.dt.points[tri[1]]
-            c0 = self.dt.points[tri[2]]
 
-            cc0 = circumcircle_center(a0, b0, c0)
-            for a_tri in adjacent_triangles:
-                if a_tri in visited_triangles:
-                    continue
-                a1 = self.dt.points[a_tri[0]]
-                if self.any_vertices_convex_hull([a_tri[0], a_tri[1], a_tri[2]]):
-                    continue
-                b1 = self.dt.points[a_tri[1]]
-                c1 = self.dt.points[a_tri[2]]
+            incident_triangles = None
+            try:
+                incident_triangles = self.dt.incident_triangles_to_vertex(point_i)
+            except Exception as e:
+                print(e)
+                continue
+
+            for i in range(len(incident_triangles)):
+                tri0 = incident_triangles[i]
+                j = i + 1 if i + 1 < len(incident_triangles) else 0
+
+                tri1 = incident_triangles[j]
+                a0, b0, c0 = points[tri0[0]], points[tri0[1]], points[tri0[2]]
+                a1, b1, c1 = points[tri1[0]], points[tri1[1]], points[tri1[2]]
+
+                cc0 = circumcircle_center(a0, b0, c0)
                 cc1 = circumcircle_center(a1, b1, c1)
-
-                if cc1 is None or cc0 is None:
-                    continue
-
-                edge = [cc1, cc0]
+                edge = [cc0, cc1]
                 edges.append(edge)
-            # TODO: check if we should add convex hull edges
-        # np_edges = np.array(edges)
-        # unique_edges = np.unique(np_edges, axis=0)
-        # edges_list = unique_edges.tolist()
-        # flatten_edges = [item for sublist in edges_list for item in sublist]
-        flatten_edges = [item for sublist in edges for item in sublist]
+
+        np_edges = np.array(edges)
+        unique_edges = np.unique(np_edges, axis=0)
+        edges_list = unique_edges.tolist()
+        flatten_edges = [item for sublist in edges_list for item in sublist]
         return flatten_edges
 
-    # Ref: https://github.com/hugoledoux/startin/blob/574e3c8cd06aa5b03b86f867b1fb69f21c0f81c5/src/interpolation/mod.rs#L174C1-L174C5
     def interpolate_tin(self, x, y):
         """
-        !!! TO BE COMPLETED !!!
-
         Function that interpolates linearly in a TIN.
 
         Input:
@@ -126,10 +126,8 @@ class Tin:
         """
         q = (x, y)
 
-        # TODO: check if it allowed or not
         if not self.dt.is_inside_convex_hull(x, y):
             return np.nan
-            # raise ValueError("Point is outside the convex hull")
 
         triangle = self.dt.locate(x, y)
 
@@ -140,20 +138,17 @@ class Tin:
         a1 = abs(area_triangle(q, p0, p2))
         a2 = abs(area_triangle(q, p0, p1))
         area_total = a0 + a1 + a2
-
+        print(area_total)
         w0, w1, w2 = a0 / area_total, a1 / area_total, a2 / area_total
         result = w0 * p0[2] + w1 * p1[2] + w2 * p2[2]
 
         result2 = self.dt.interpolate({"method": "TIN"}, [[x, y]])
-        print("res1---", result)
-        print("expected---", result2)
+        print("result: ", result)
+        print("expected: ", result2)
         return result
 
-    # Ref: https://github.com/hugoledoux/startin/blob/574e3c8cd06aa5b03b86f867b1fb69f21c0f81c5/src/lib.rs#L1478
     def get_area_voronoi_cell(self, vi):
         """
-        !!! TO BE COMPLETED !!!
-
         Function that obtain the area of one Voronoi cells.
 
         Input:
@@ -163,17 +158,18 @@ class Tin:
                return numpy.inf if the cell is unbounded
                (infinity https://numpy.org/devdocs/reference/constants.html#numpy.inf)
         """
+
+        if self.dt.is_vertex_convex_hull(vi):
+            return np.inf
+
         try:
             incident_triangles = self.dt.incident_triangles_to_vertex(vi)
         except Exception as e:
-            print("vi is not in the TIN", e)
+            print(e)
             return np.inf
 
         voronoi_vertices = []
         for tri in incident_triangles:
-            # TODO: check later
-            if not self.dt.is_finite(tri):
-                return np.inf
             p0_i, p1_i, p2_i = tri
             p0, p1, p2 = (
                 self.dt.points[p0_i],
@@ -186,16 +182,6 @@ class Tin:
         area = area_polygon(voronoi_simple_polygon)
 
         return area
-
-    def any_vertices_convex_hull(self, vertices):
-        for v in vertices:
-            if self.dt.is_vertex_convex_hull(v):
-                return True
-            else:
-                continue
-        return False
-
-    # TODO: change to implement this ref: https://github.com/hugoledoux/startin/blob/574e3c8cd06aa5b03b86f867b1fb69f21c0f81c5/src/geom/mod.rs#L18C3-L18C3
 
 
 def circumcircle_center(p1, p2, p3):
@@ -219,10 +205,11 @@ def circumcircle_center(p1, p2, p3):
 
 
 def area_triangle(a, b, c):
-    return det3x3t(a, b, c) / 2.0
+    return (
+        det3x3t(a, b, c) / 2.0
+    )  # area can be minus. Signed should be handle by the caller function
 
 
-# Ref: https://github.com/hugoledoux/startin/blob/574e3c8cd06aa5b03b86f867b1fb69f21c0f81c5/src/geom/mod.rs#L10
 def det3x3t(a, b, c):
     return ((a[0] - c[0]) * (b[1] - c[1])) - ((a[1] - c[1]) * (b[0] - c[0]))
 
@@ -237,6 +224,6 @@ def area_polygon(
     total = 0.0
     for i in range(len(vertices) - 1):
         j = i + 1
-        tri_area = abs(area_triangle(arbitary_point, vertices[i], vertices[j]))
+        tri_area = area_triangle(arbitary_point, vertices[i], vertices[j])
         total += tri_area
     return total
