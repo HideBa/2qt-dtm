@@ -76,13 +76,11 @@ class Tin:
 
         points = self.dt.points
         for point_i in range(1, len(points)):
-            is_vertex_convex_hull = None
-            # TODO: check what is the expected behaviour
             try:
                 is_vertex_convex_hull = self.dt.is_vertex_convex_hull(point_i)
             except Exception as e:
                 print(e)
-                return []
+                continue
             if is_vertex_convex_hull:
                 continue
 
@@ -216,7 +214,7 @@ def det3x3t(a, b, c):
 
 def area_polygon(
     vertices,
-):  # vertices should be simple feature data format. e.g. first and last should be the same vertext
+):  # vertices should be simple feature data format. i.e. first and last should be the same vertext
     arbitary_point = [
         0,
         0,
