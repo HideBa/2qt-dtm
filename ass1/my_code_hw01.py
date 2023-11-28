@@ -122,6 +122,7 @@ class Tin:
                numpy.nan if outside the convex hull
                (NaN: Not a Number https://numpy.org/devdocs/reference/constants.html#numpy.nan)
         """
+        # Memo: When more than 3 points given are cocircular, DT isn't unique. However, startinpy takes care of it, thus we don't need to worry about it.
         q = (x, y)
 
         if not self.dt.is_inside_convex_hull(x, y):
@@ -203,9 +204,8 @@ def circumcircle_center(p1, p2, p3):
 
 
 def area_triangle(a, b, c):
-    return (
-        det3x3t(a, b, c) / 2.0
-    )  # area can be minus. Signed should be handle by the caller function
+    # area can be minus. Sign should be handle by the caller function
+    return det3x3t(a, b, c) / 2.0
 
 
 def det3x3t(a, b, c):
@@ -214,7 +214,7 @@ def det3x3t(a, b, c):
 
 def area_polygon(
     vertices,
-):  # vertices should be simple feature data format. i.e. first and last should be the same vertext
+):  # vertices should be simple feature data format. i.e. first and last should be the same vertex
     arbitary_point = [
         0,
         0,
