@@ -7,6 +7,8 @@ import rasterio
 import sys
 import numpy as np
 
+CELL_SIZE = 30  # in meters
+
 
 def main():
     parser = argparse.ArgumentParser(description="My GEO1015.2023 hw02")
@@ -35,7 +37,63 @@ def main():
     bbox = d.bounds
     middlept = ((bbox[2] - bbox[0]) / 2 + bbox[0], (bbox[3] - bbox[1]) / 2 + bbox[1])
     print(middlept)
-    some_code_to_help_with_rasterio(d, middlept)
+    # some_code_to_help_with_rasterio(d, middlept)
+    gradient_ras = gradient(d)
+
+
+def aspect(d):
+    pass
+
+
+def maximum_height_difference(d):
+    n1 = d.read(1)  # It expects it's single band
+
+    n_rows, n_cols = n1.shape
+    for i in range(n_rows):
+        for j in range(n_cols):
+            row_min = max(i - 1, 0)
+            row_max = min(i + 1, n_rows - 1)
+            col_min = max(j - 1, 0)
+            col_max = min(j + 1, n_cols - 1)
+
+            neighbours = n1[row_min : row_max + 1, col_min : col_max + 1]
+            height_diff = [abs(height - n1[i][j]) for height in neighbours]
+            print("nei", neighbours)
+
+
+def gradient(d):
+    print("name", d.name)
+    print("mode", d.mode)
+    n1 = d.read(1)  # It expects it's single band
+
+    n_rows, n_cols = n1.shape
+    count = 0
+    # for i in range(n_rows):
+    #     for j in range(n_cols):
+    #         if count > 1:
+    #             continue
+    #         row_min = max(i - 1, 0)
+    #         row_max = min(i + 1, n_rows - 1)
+    #         col_min = max(j - 1, 0)
+    #         col_max = min(j + 1, n_cols - 1)
+
+    #         neighbours = n1[row_min : row_max + 1, col_min : col_max + 1]
+    #         print("nei", neighbours)
+    #         count += 1
+    gradient_list = np.array(np.gradient(n1, CELL_SIZE))
+    print("grad", gradient_list.shape)
+
+    n2 = np.zeros_like(n1, dtype=np.int8)
+
+
+# def neighbour_gradient(neighbours):
+#     center_index = len(neighbours)/2
+#     for n in neighbours:
+#         if index()
+
+
+def hillshade(d):
+    pass
 
 
 def some_code_to_help_with_rasterio(dataset, middlept):
