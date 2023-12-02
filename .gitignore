@@ -176,3 +176,9 @@ pyrightconfig.json
 # End of https://www.toptal.com/developers/gitignore/api/python
 
 .DS_Store
+
+/ass2/ex_data
+/ass2/qgis
+/ass2/out
+/ass2/delft
+/ass2/sample
