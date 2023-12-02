@@ -22,6 +22,8 @@ def main():
     elif args.cmd == "hillshade":
         print("Hillshade!")
 
+    file_name = extract_filename_from_path(args.inputfile)
+
     # -- load in memory the input DEM
     try:
         # -- this gives you a Rasterio dataset
@@ -48,9 +50,9 @@ def main():
     save_ras(
         aspect_data,
         d,
-        "./ass2/out/aspect.tiff",
+        "./ass2/out/{}_aspect.tiff".format(file_name),
     )
-    save_ras(hillshade_data, d, "./ass2/out/hillshade.tiff")
+    save_ras(hillshade_data, d, "./ass2/out/{}_hillshade.tiff".format(file_name))
     read_aspect()
     np.savetxt("./ass2/debug/aspect-my.csv", aspect_data, delimiter=",")
 
@@ -185,6 +187,10 @@ def save_ras(data, source_ras, out_path):
         transform=source_ras.transform,
     ) as dst:
         dst.write(data, 1)
+
+
+def extract_filename_from_path(path):
+    return path.split("/")[-1].split(".")[0]
 
 
 """
