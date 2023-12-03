@@ -8,6 +8,8 @@ import rasterio
 import sys
 import numpy as np
 
+# import statingpy
+
 CELL_SIZE = 30  # in meters
 
 
@@ -94,11 +96,69 @@ def hillshade(
 
 
 def slope(d):
-    aspect, gradient = finite_difference(d.read(1))
+    # aspect, gradient = finite_difference(d)
+    aspect, gradient = maximum_height_difference(d)
     return aspect, gradient
 
 
-def finite_difference(dtm):
+def tin_slope(d):
+    points = convert_raster_to_points(d)
+    dt = statingpy.DT()
+    dt.insert(points)
+    for i in range(len(points)):
+        for j in range(len(points[i])):
+            if i > len(points) or j > len(points):
+                continue
+            index_of_p = i * len(points[i]) + j
+            incident_triangles = dt.incident_triangles_to_vertex(index_of_p)
+            normal_vectors = []
+            for tri in incident_triangles:
+                p0 = dt.poinst[tri[0]]
+                p1 = dt.poinst[tri[1]]
+                p2 = dt.poinst[tri[2]]
+                e01 = p1 - p0
+                e02 = p2 - p0
+                normal = np.cross(e01, e02)
+                normal_vectors.append(normal)
+            normal_vector = np.mean(
+                normal_vectors, axis=0
+            )  # TODO: check if this is correct
+
+
+def triangulate_grid_points(points_row_col):
+    triangles = []
+    for i in range(len(points_row_col)):
+        lst = []
+        for j in range(len(points_row_col[i])):
+            if i > len(points_row_col) or j > len(points_row_col):
+                continue
+            p1 = points_row_col[i][j]
+            p2 = points_row_col[i][j + 1]
+            p3 = points_row_col[i + 1][j]
+            lst.append([p1, p2, p3])
+        triangles.append(lst)
+
+
+def convert_raster_to_points(d):
+    width, height = d.width, d.height
+
+    # Get the transformation matrix
+    transform = d.transform
+    data = d.read(1)
+    centers = []
+    for row in range(height):
+        lst = []
+        for col in range(width):
+            # Calculate the center coordinates
+            centerX = transform[2] + transform[0] * (col + 0.5)
+            centerY = transform[5] + transform[4] * (row + 0.5)
+            lst.append((centerX, centerY, data[row, col]))
+        centers.append(lst)
+    return centers
+
+
+def finite_difference(d):
+    dtm = d.read(1)
     aspect_list = np.zeros_like(dtm, dtype=np.float32)
     gradient_list = np.zeros_like(dtm, dtype=np.float32)
     n_rows, n_cols = dtm.shape
@@ -120,16 +180,17 @@ def finite_difference(dtm):
 
 
 def maximum_height_difference(d):
-    n1 = d.read(1)  # It expects it's single band
+    n1 = d.read(1)
     aspect = np.zeros_like(n1, dtype=np.uint16)
+    gradient = np.zeros_like(n1, dtype=np.float32)
     n_rows, n_cols = n1.shape
     for i in range(n_rows):
         for j in range(n_cols):
             center = n1[i][j]
             height_diffs = []
-            for di, dj, degree in [
+            for di, dj, azimuthal_degree in [
                 (-1, -1, 315),
-                (-1, 0, 360),
+                (-1, 0, 0),
                 (-1, 1, 45),
                 (0, -1, 270),
                 (0, 1, 90),
@@ -141,15 +202,22 @@ def maximum_height_difference(d):
                 if 0 <= ni < n_rows and 0 <= nj < n_cols:
                     n = n1[ni][nj]
                     height_diff = abs(center - n)
-                    height_diffs.append([height_diff, degree])
+                    height_diffs.append([height_diff, azimuthal_degree])
                 else:  # TODO: check how should this be handled
-                    height_diffs.append([0, degree])
+                    height_diffs.append([0, azimuthal_degree])
             max_neighbour = max(height_diffs, key=lambda x: x[0])
-            degree = max_neighbour[1]
-            aspect[i][j] = degree
+            azimuthal_degree = max_neighbour[1]
+            distance = (
+                CELL_SIZE
+                if azimuthal_degree % 90 == 0
+                else math.sqrt(CELL_SIZE**2 + CELL_SIZE**2)
+            )
+            gradient_ij = math.degrees(math.atan(max_neighbour[0] / distance))
+            aspect[i][j] = azimuthal_degree
+            gradient[i][j] = gradient_ij
     print("min", np.min(aspect))
     print("max", np.max(aspect))
-    return aspect
+    return (aspect, gradient)
 
 
 def gradient(d):
