@@ -8,8 +8,6 @@ import rasterio
 import sys
 import numpy as np
 
-# import statingpy
-
 CELL_SIZE = 30  # in meters
 
 
@@ -47,6 +45,7 @@ def main():
     np.savetxt("./ass2/debug/terrain.csv", debug_d, delimiter=",")
 
     aspect_data, gradient_data = slope(d)
+
     hillshade_data = hillshade(gradient_data, aspect_data)
 
     save_ras(
@@ -60,13 +59,12 @@ def main():
 
 
 def hillshade(
-    gradient_degree, aspect_degree, sun_azimuth_degree=315, sun_height_degree=30
+    gradient_degree, aspect_degree, sun_azimuth_degree=315, sun_height_degree=45
 ):
     # it expects that all parameters in degree
     gradient = np.radians(gradient_degree)
     aspect = np.radians(aspect_degree)
     hillshade = np.zeros_like(gradient, dtype=np.float64)
-    print("sun", sun_azimuth_degree, sun_azimuth_degree)
 
     if gradient.shape != aspect.shape:
         print("different size!!!")
@@ -96,8 +94,8 @@ def hillshade(
 
 
 def slope(d):
-    # aspect, gradient = finite_difference(d)
-    aspect, gradient = maximum_height_difference(d)
+    aspect, gradient = finite_difference(d)
+    # aspect, gradient = maximum_height_difference(d)
     return aspect, gradient
 
 
@@ -125,38 +123,6 @@ def tin_slope(d):
             )  # TODO: check if this is correct
 
 
-def triangulate_grid_points(points_row_col):
-    triangles = []
-    for i in range(len(points_row_col)):
-        lst = []
-        for j in range(len(points_row_col[i])):
-            if i > len(points_row_col) or j > len(points_row_col):
-                continue
-            p1 = points_row_col[i][j]
-            p2 = points_row_col[i][j + 1]
-            p3 = points_row_col[i + 1][j]
-            lst.append([p1, p2, p3])
-        triangles.append(lst)
-
-
-def convert_raster_to_points(d):
-    width, height = d.width, d.height
-
-    # Get the transformation matrix
-    transform = d.transform
-    data = d.read(1)
-    centers = []
-    for row in range(height):
-        lst = []
-        for col in range(width):
-            # Calculate the center coordinates
-            centerX = transform[2] + transform[0] * (col + 0.5)
-            centerY = transform[5] + transform[4] * (row + 0.5)
-            lst.append((centerX, centerY, data[row, col]))
-        centers.append(lst)
-    return centers
-
-
 def finite_difference(d):
     dtm = d.read(1)
     aspect_list = np.zeros_like(dtm, dtype=np.float32)
@@ -168,15 +134,42 @@ def finite_difference(d):
                 aspect_list[i][j] = 0
                 continue
 
-            dx = (dtm[i, j + 1] - dtm[i, j - 1]) / (2 * CELL_SIZE)
+            dx = (dtm[i, j - 1] - dtm[i, j + 1]) / (2 * CELL_SIZE)
             dy = (dtm[i + 1, j] - dtm[i - 1, j]) / (2 * CELL_SIZE)
 
             gradient = math.degrees(math.atan(math.sqrt(dx**2 + dy**2)))
-            # TODO: consider when dx is zero
             aspect = math.degrees(math.atan2(dy, dx))
+
+            if dx > 0 and dy > 0:
+                aspect = 90 - abs(aspect)
+            elif dx > 0 and dy < 0:
+                aspect = 90 + abs(aspect)
+            elif dx < 0 and dy < 0:
+                aspect = 90 + abs(aspect)
+            elif dx < 0 and dy > 0:
+                aspect = 450 - abs(aspect)
+            elif dx == 0 and dy > 0:
+                aspect = 0
+            elif dx == 0 and dy < 0:
+                aspect = 180
+            elif dx > 0 and dy == 0:
+                aspect = 90
+            elif dx < 0 and dy == 0:
+                aspect = 270
             gradient_list[i][j] = gradient
-            aspect_list[i][j] = (aspect + 360) % 360 if aspect < 0 else aspect
+            aspect_list[i][j] = aspect
     return aspect_list, gradient_list
+
+
+def convert_cartesian_to_azimuthal(cartesian_degree):
+    if 0 <= cartesian_degree < 90:
+        return 90 - cartesian_degree
+    elif 90 <= cartesian_degree <= 180:
+        return 450 - cartesian_degree
+    elif -90 <= cartesian_degree < 0:
+        return 90 + abs(cartesian_degree)
+    elif -180 <= cartesian_degree < -90:
+        return 90 + abs(cartesian_degree)
 
 
 def maximum_height_difference(d):
@@ -215,31 +208,11 @@ def maximum_height_difference(d):
             gradient_ij = math.degrees(math.atan(max_neighbour[0] / distance))
             aspect[i][j] = azimuthal_degree
             gradient[i][j] = gradient_ij
-    print("min", np.min(aspect))
-    print("max", np.max(aspect))
+
     return (aspect, gradient)
 
 
-def gradient(d):
-    n1 = d.read(1)  # It expects it's single band
-
-    n_rows, n_cols = n1.shape
-    count = 0
-    # for i in range(n_rows):
-    #     for j in range(n_cols):
-    #         if count > 1:
-    #             continue
-    #         row_min = max(i - 1, 0)
-    #         row_max = min(i + 1, n_rows - 1)
-    #         col_min = max(j - 1, 0)
-    #         col_max = min(j + 1, n_cols - 1)
-
-    #         neighbours = n1[row_min : row_max + 1, col_min : col_max + 1]
-    #         print("nei", neighbours)
-    #         count += 1
-    gradient_list = np.array(np.gradient(n1, CELL_SIZE))
-
-    n2 = np.zeros_like(n1, dtype=np.int8)
+# def local_polynominal_fitting(d):
 
 
 def save_ras(data, source_ras, out_path):
@@ -259,6 +232,38 @@ def save_ras(data, source_ras, out_path):
 
 def extract_filename_from_path(path):
     return path.split("/")[-1].split(".")[0]
+
+
+def triangulate_grid_points(points_row_col):
+    triangles = []
+    for i in range(len(points_row_col)):
+        lst = []
+        for j in range(len(points_row_col[i])):
+            if i > len(points_row_col) or j > len(points_row_col):
+                continue
+            p1 = points_row_col[i][j]
+            p2 = points_row_col[i][j + 1]
+            p3 = points_row_col[i + 1][j]
+            lst.append([p1, p2, p3])
+        triangles.append(lst)
+
+
+def convert_raster_to_points(d):
+    width, height = d.width, d.height
+
+    # Get the transformation matrix
+    transform = d.transform
+    data = d.read(1)
+    centers = []
+    for row in range(height):
+        lst = []
+        for col in range(width):
+            # Calculate the center coordinates
+            centerX = transform[2] + transform[0] * (col + 0.5)
+            centerY = transform[5] + transform[4] * (row + 0.5)
+            lst.append((centerX, centerY, data[row, col]))
+        centers.append(lst)
+    return centers
 
 
 """
