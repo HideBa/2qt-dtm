@@ -182,3 +182,10 @@ pyrightconfig.json
 /ass2/out
 /ass2/delft
 /ass2/sample
+*.zip
+*.aux.xml
+*tif
+*.csv
+*.qgz
+*.pdf
+grass*
