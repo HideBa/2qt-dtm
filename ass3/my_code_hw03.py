@@ -5,6 +5,7 @@
 
 import math
 import sys
+import unittest
 import numpy as np
 import rasterio
 from rasterio import features
@@ -36,35 +37,53 @@ def is_visible(d, ax, ay, bx, by):
     v_row, v_col = data.index(ax, ay)
     q_row, q_col = data.index(bx, by)
 
-    # TODO: add error handling
+    original_data = data.read(1)
+    rows, cols = original_data.shape
 
-    ras = data.read(1)
-    v_z, q_z = ras[v_row, v_col], ras[q_row, q_col]
+    # If a or b is outside of the extent of the dataset
+    if (not is_inside(0, rows - 1, 0, cols - 1, (v_row, v_col))) or (
+        not is_inside(0, rows - 1, 0, cols - 1, (q_row, q_col))
+    ):
+        return -1
+    v_z, q_z = original_data[v_row, v_col], original_data[q_row, q_col]
+    nodata = data.nodata
+
+    # If a or b is located in a no_data cell
+    if v_z == nodata or q_z == nodata:
+        return -2
+
+    # TODO: consider when a n b are in the same cell
+    if v_row == q_row and v_col == q_col:
+        return 1
     # Add 2.0 meter as person's height
     v, q = (ax, ay, v_z + 2.0), (bx, by, q_z)
 
-    nodata = data.nodata
-    vq_profile = bresenham_with_rasterio(data, v, q)
+    vq_profile = vq_profile_with_bresenham(data, v, q)
+    # save_ras(vq_profile, data, "./ass3/data/out/breshenham.tif", nodata=nodata)
 
-    rows, cols = ras.shape
     for row in range(rows):
         for col in range(cols):
-            if vq_profile[row, col] == nodata or ras[row, col] == nodata:
+            if vq_profile[row, col] == nodata or original_data[row, col] == nodata:
                 continue
+            if (row == v_row and col == v_col) or (
+                row == q_row and col == q_col
+            ):  # TODO: check if this is correct.
+                continue
+            if original_data[row, col] >= vq_profile[row, col]:
+                return 0
+    return 1
 
-            if ras[row, col] >= vq_profile[row, col]:
-                return False
-    save_ras(vq_profile, data, "./data/out/breshenham.tif")
-    # Memo: add 2m as person's height
-    return True
+
+def is_inside(min_row, max_row, min_col, max_col, row_col):
+    return min_row <= row_col[0] <= max_row and min_col <= row_col[1] <= max_col
 
 
-def bresenham_with_rasterio(d, a, b):
+def vq_profile_with_bresenham(d, a, b):
     """
-    !!! USE THIS CODE !!!
-
-    Example code that can be useful: use it for your function,
-    copy part of it, it's allowed.
+    This function is based on the Bresenham's line algorithm
+    It recieves a rasterio dataset, and two points (a, b) in the form of (x, y, z)
+    It returns a rasterio dataset with the same shape as the input dataset
+    The values of the dataset are the interpolated height of the line connecting a and b
     """
     a_row, a_col = d.index(a[0], a[1])
     b_row, b_col = d.index(b[0], b[1])
@@ -79,7 +98,6 @@ def bresenham_with_rasterio(d, a, b):
     re = features.rasterize(
         shapes,
         out_shape=d.shape,
-        # all_touched=True,
         transform=d.transform,
         fill=nodata,
     )
@@ -91,11 +109,10 @@ def bresenham_with_rasterio(d, a, b):
             if re[row, col] == nodata:
                 vq_profile[row, col] = nodata
                 continue
-            intersection_point = find_perpendicular_intersection(a, b, d.xy(row, col))
+            intersection_point = vq.find_perpendicular_intersection(d.xy(row, col))
             val = vq.interpolate_height_on_linestring(intersection_point)
             vq_profile[row, col] = val
     return vq_profile
-    # re is a numpy with d.shape where the line is rasterised (values != 0)
 
 
 class VQ:
@@ -111,31 +128,28 @@ class VQ:
         height_p = self.v[2] + (self.q[2] - self.v[2]) * ratio
         return height_p
 
+    def find_perpendicular_intersection(self, p):
+        x1, y1, _ = self.v
+        x2, y2, _ = self.q
+        xp, yp = p
+        if math.isclose(x2 - x1, 0):
+            return x1, yp
+        else:
+            slope_vq = (y2 - y1) / (x2 - x1)
 
-def find_perpendicular_intersection(v, q, p):
-    x1, y1 = v
-    x2, y2 = q
-    xp, yp = p
-    if x2 - x1 != 0:  # TODO: check floating point
-        slope_vq = (y2 - y1) / (x2 - x1)
-    else:
-        return x1, yp
+        if math.isclose(slope_vq, 0):
+            return xp, y1
+        else:
+            slope_perpendicular = -1 / slope_vq
 
-    if slope_vq != 0:
-        slope_perpendicular = -1 / slope_vq
-    else:
-        return xp, y1
-
-    # Equation of line VQ: y = slope_vq * (x - x1) + y1
-    # Equation of perpendicular from P: y = slope_perpendicular * (x - xp) + yp
-
-    # Solve for x and y
-    x = (slope_perpendicular * xp - yp + y1 - slope_vq * x1) / (
-        slope_perpendicular - slope_vq
-    )
-    y = slope_vq * (x - x1) + y1
-
-    return x, y
+        # Equation of line VQ: y = slope_vq * (x - x1) + y1
+        # Equation of perpendicular from P: y = slope_perpendicular * (x - xp) + yp
+        # Solve for x and y
+        x = (slope_perpendicular * xp - yp + y1 - slope_vq * x1) / (
+            slope_perpendicular - slope_vq
+        )
+        y = slope_vq * (x - x1) + y1
+        return x, y
 
 
 def save_ras(data, source_ras, out_path, nodata=-9999):
@@ -154,5 +168,81 @@ def save_ras(data, source_ras, out_path, nodata=-9999):
         dst.write(data, 1)
 
 
+class Testing(unittest.TestCase):
+    def test_is_inside(self):
+        # Inside
+        self.assertEqual(is_inside(0, 10, 0, 10, (5, 5)), True)
+        # Boundary
+        self.assertEqual(is_inside(0, 10, 0, 10, (0, 0)), True)
+        self.assertEqual(is_inside(0, 10, 0, 10, (10, 10)), True)
+        # Outside
+        self.assertEqual(is_inside(0, 10, 0, 10, (11, -1)), False)
+
+    def test_is_visible(self):
+        # Outside of extent: Should return -1
+        self.assertEqual(
+            is_visible(
+                "./ass3/data/copernicus.tif", 84874.9, 449864.2, 86843.2, 449977.8
+            ),
+            -1,
+        )
+        self.assertEqual(
+            is_visible(
+                "./ass3/data/copernicus.tif", 86843.2, 449977.8, 84874.9, 449864.2
+            ),  # opposite order
+            -1,
+        )
+        # On no data value: should return -2
+        self.assertEqual(
+            is_visible("./ass3/data/ahn.tif", 81384.8, 444480.7, 83556.6, 449647.9),
+            -2,  # Opposite order
+        )
+
+        # Visible
+        self.assertEqual(
+            is_visible(
+                "./ass3/data/copernicus.tif",
+                84535.14,
+                447598.66,
+                84536.53,
+                447598.83,  # Delft church
+            ),
+            1,
+        )
+        self.assertEqual(
+            is_visible(
+                "./ass3/data/copernicus.tif",
+                84527.10,
+                447602.81,  # Delft church, opposite order
+                84639.05,
+                447500.85,
+            ),
+            1,
+        )
+        self.assertEqual(
+            is_visible(
+                "./ass3/data/ahn.tif", 84495.5, 447579.4, 84170.2, 447627.4
+            ),  # Delft church
+            1,
+        )
+        # # Not visible
+        self.assertEqual(
+            is_visible(
+                "./ass3/data/copernicus.tif", 84915.2, 447669.1, 84573.7, 447444.8
+            ),
+            0,
+        )
+        self.assertEqual(
+            is_visible("./ass3/data/ahn.tif", 84408.01, 447532.81, 84869.3, 447785.9),
+            0,
+        )
+        self.assertEqual(
+            is_visible(
+                "./ass3/data/ahn.tif", 84869.3, 447785.9, 84408.01, 447532.81
+            ),  # Opposite order
+            0,
+        )
+
+
 if __name__ == "__main__":
-    is_visible("./data/copernicus.tif", 83692.8, 447240.0, 85824.3, 448745.4)
+    unittest.main()
