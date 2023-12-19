@@ -8,12 +8,10 @@
       "name": "Python: Current File",
       "type": "python",
       "request": "launch",
-      "program": "${workspaceFolder}/ass2/geo1015_hw02.py",
+      "program": "${workspaceFolder}/ass3/my_code_hw03.py",
+      "workingDirectory": "${workspaceFolder}/ass3",
       "console": "integratedTerminal",
-      "args": [
-        "aspect",
-        "${workspaceFolder}/ass2/terrain.tif",
-      ],
+      "args": [],
       "justMyCode": true
     }
   ]

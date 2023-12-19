@@ -42,10 +42,7 @@ def main():
         print("The input dataset must be EPSG:7415 (now it's {})".format(d.crs))
         sys.exit()
 
-    re = my_code_hw03.is_visible(
-        "./data/copernicus.tif", 83013.4, 448026.0, 85751.0, 448792.0
-    )
-    # re = my_code_hw03.is_visible(d, args.ax, args.ay, args.bx, args.by)
+    re = my_code_hw03.is_visible(d, args.ax, args.ay, args.bx, args.by)
     if re == 1:
         print("YES")
     elif re == 0:

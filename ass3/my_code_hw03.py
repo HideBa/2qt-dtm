@@ -1,7 +1,7 @@
 # -- my_code_hw03.py
 # -- geo1015.2023.hw03
-# -- [YOUR NAME]
-# -- [YOUR STUDENT NUMBER]
+# -- Hidemichi Baba
+# -- 5967538
 
 import math
 import sys
@@ -13,8 +13,6 @@ from rasterio import features
 
 def is_visible(d, ax, ay, bx, by):
     """
-    !!! TO BE COMPLETED !!!
-
     Is $a$ visible from $b$?
 
     Input:
@@ -36,7 +34,6 @@ def is_visible(d, ax, ay, bx, by):
         sys.exit()
     v_row, v_col = data.index(ax, ay)
     q_row, q_col = data.index(bx, by)
-
     original_data = data.read(1)
     rows, cols = original_data.shape
 
@@ -52,24 +49,19 @@ def is_visible(d, ax, ay, bx, by):
     if v_z == nodata or q_z == nodata:
         return -2
 
-    # TODO: consider when a n b are in the same cell
     if v_row == q_row and v_col == q_col:
         return 1
     # Add 2.0 meter as person's height
     v, q = (ax, ay, v_z + 2.0), (bx, by, q_z)
 
     vq_profile = vq_profile_with_bresenham(data, v, q)
-    # save_ras(vq_profile, data, "./ass3/data/out/breshenham.tif", nodata=nodata)
-
     for row in range(rows):
         for col in range(cols):
             if vq_profile[row, col] == nodata or original_data[row, col] == nodata:
                 continue
-            if (row == v_row and col == v_col) or (
-                row == q_row and col == q_col
-            ):  # TODO: check if this is correct.
+            elif (row == v_row and col == v_col) or (row == q_row and col == q_col):
                 continue
-            if original_data[row, col] >= vq_profile[row, col]:
+            elif original_data[row, col] >= vq_profile[row, col]:
                 return 0
     return 1
 
@@ -99,6 +91,7 @@ def vq_profile_with_bresenham(d, a, b):
         shapes,
         out_shape=d.shape,
         transform=d.transform,
+        all_touched=True,
         fill=nodata,
     )
     rows, cols = re.shape
@@ -142,9 +135,6 @@ class VQ:
         else:
             slope_perpendicular = -1 / slope_vq
 
-        # Equation of line VQ: y = slope_vq * (x - x1) + y1
-        # Equation of perpendicular from P: y = slope_perpendicular * (x - xp) + yp
-        # Solve for x and y
         x = (slope_perpendicular * xp - yp + y1 - slope_vq * x1) / (
             slope_perpendicular - slope_vq
         )
@@ -198,14 +188,14 @@ class Testing(unittest.TestCase):
             -2,  # Opposite order
         )
 
-        # Visible
+        # Visible, same cell
         self.assertEqual(
             is_visible(
                 "./ass3/data/copernicus.tif",
                 84535.14,
                 447598.66,
                 84536.53,
-                447598.83,  # Delft church
+                447598.83,
             ),
             1,
         )
@@ -225,7 +215,7 @@ class Testing(unittest.TestCase):
             ),  # Delft church
             1,
         )
-        # # Not visible
+        # # # Not visible
         self.assertEqual(
             is_visible(
                 "./ass3/data/copernicus.tif", 84915.2, 447669.1, 84573.7, 447444.8
@@ -237,9 +227,7 @@ class Testing(unittest.TestCase):
             0,
         )
         self.assertEqual(
-            is_visible(
-                "./ass3/data/ahn.tif", 84869.3, 447785.9, 84408.01, 447532.81
-            ),  # Opposite order
+            is_visible("./ass3/data/ahn.tif", 84869.3, 447785.9, 84408.01, 447532.81),
             0,
         )
 
